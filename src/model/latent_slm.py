@@ -5,7 +5,7 @@ from .generators import LatentAttentionDeltaGenerator, LinearDeltaGenerator
 from .basic.decoder import LatentDecoderBlock
 
 
-class LoopSlm(nn.Module):
+class DeltaSlm(nn.Module):
     def __init__(self, embeddings, n_heads, d_c, d_ff, num_layers, max_seq_len,
                  expansion_order, dropout=0.1):
         super().__init__()

@@ -8,15 +8,13 @@ from ..basis import TriangleSurface3D, TriangleSurface4D
 
 
 class LoopBlock(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, num_layers, max_seq_len,
-                 expansion_order, state_dim, max_mat_cycles=1, max_rc_cycles=5, max_depth_cycles=1,
-                 dropout=0.1):
+    def __init__(self, d_model, n_heads, d_ff, num_layers, expansion_order, state_dim,
+                 max_mat_cycles=1, max_rc_cycles=5, max_depth_cycles=1, dropout=0.1):
         super().__init__()
 
         self.d_model = d_model
         self.d_ff = d_ff
         self.num_layers = num_layers
-        self.max_seq_len = max_seq_len
         self.expansion_order = expansion_order
 
         self.ctx_tracker = ContextTracker(d_model, state_dim)
@@ -76,8 +74,7 @@ class LoopBlock(nn.Module):
         return (self.W_q, self.W_k, self.W_v, self.W_o, self.W_up, self.W_down)
 
     def forward(self, x, attn_mask=None):
-        B, T, E = x.shape
-        assert T <= self.max_seq_len
+        # B, T, E = x.shape
 
         state = self.ctx_tracker(x)
         state = self.ctx_comp(state)

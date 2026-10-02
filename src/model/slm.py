@@ -4,35 +4,31 @@ import torch.nn.functional as F
 from .modulated.loop import LoopBlock
 
 
-class LoopSlm(nn.Module):
-    def __init__(self, embeddings, n_heads, d_ff, num_layers, max_seq_len,
+class DeltaSlm(nn.Module):
+    def __init__(self, embeddings, n_heads, d_ff, num_layers,
                  expansion_order, state_dim, dropout=0.1):
         super().__init__()
         vocab_size, d_model = embeddings.shape
         self.d_model = d_model
         self.d_ff = d_ff
         self.num_layers = num_layers
-        self.max_seq_len = max_seq_len
         self.expansion_order = expansion_order
 
         self.token_emb = nn.Embedding.from_pretrained(embeddings, freeze=True)
         self.dropout = nn.Dropout(dropout)
 
         self.in_block = LoopBlock(
-            d_model=d_model, n_heads=n_heads, d_ff=d_ff,
-            num_layers=num_layers[0], max_seq_len=max_seq_len,
+            d_model=d_model, n_heads=n_heads, d_ff=d_ff, num_layers=num_layers[0],
             expansion_order=expansion_order, state_dim=state_dim,
             max_mat_cycles=2, max_rc_cycles=24, max_depth_cycles=2,
         )
         self.internal_block = LoopBlock(
-            d_model=d_model, n_heads=n_heads, d_ff=d_ff,
-            num_layers=num_layers[1], max_seq_len=max_seq_len,
+            d_model=d_model, n_heads=n_heads, d_ff=d_ff, num_layers=num_layers[1],
             expansion_order=expansion_order, state_dim=state_dim,
             max_mat_cycles=2, max_rc_cycles=24, max_depth_cycles=4,
         )
         self.out_block = LoopBlock(
-            d_model=d_model, n_heads=n_heads, d_ff=d_ff,
-            num_layers=num_layers[2], max_seq_len=max_seq_len,
+            d_model=d_model, n_heads=n_heads, d_ff=d_ff, num_layers=num_layers[2],
             expansion_order=expansion_order, state_dim=state_dim,
             max_mat_cycles=2, max_rc_cycles=24, max_depth_cycles=2,
         )
@@ -40,11 +36,9 @@ class LoopSlm(nn.Module):
         self.norm_f = nn.RMSNorm(d_model)
 
     def forward(self, idx, attn_mask=None):
-        B, T = idx.shape
-        assert T <= self.max_seq_len
+        # B, T = idx.shape
 
         x = self.dropout(self.token_emb(idx))
-
         x = self.in_block(x, attn_mask=attn_mask)
         x = self.internal_block(x, attn_mask=attn_mask)
         x = self.out_block(x, attn_mask=attn_mask)
@@ -77,13 +71,11 @@ class LoopSlm(nn.Module):
         return list(merged_groups.values())
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+    def generate(self, idx, max_new_tokens, max_seq_len=1024, temperature=1.0, top_k=None):
         """Autoregressive generation loop for testing out the model."""
         self.eval()
         for _ in range(max_new_tokens):
-            idx_cond = idx[:, -self.max_seq_len:]
-
-            B, T = idx_cond.shape
+            idx_cond = idx[:, -max_seq_len:]
 
             logits = self(idx_cond)[:, -1, :]
             logits = logits / temperature
