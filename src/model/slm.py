@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from .modulated.loop import LoopBlock
 
 
-class LoopSlm(nn.Module):
+class DeltaSlm(nn.Module):
     def __init__(self, embeddings, n_heads, d_ff, num_layers,
                  expansion_order, state_dim, dropout=0.1):
         super().__init__()

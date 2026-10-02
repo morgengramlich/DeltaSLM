@@ -1,12 +1,12 @@
-# LoopSLM
+# DeltaSLM
 
-The repository contains a set of modules for building and experimenting with **LoopSLM** - a Small Language Model (SLM) architecture aiming to minimize training VRAM footprint and enable local execution.
+The repository contains a set of modules for building and experimenting with **DeltaSLM** - a Small Language Model (SLM) aiming to minimize training VRAM footprint and enable local execution.
 
-The **LoopSLM** architecture consists of two core parts: a base decoder-only layer and a set of hypersurfaces used to generate the diffs ($\Delta W_l$) that are dynamically applied to the base weight matrices to produce the next layer's weights ($W_l = W_0 + \Delta W_l$).
+**DeltaSLM** consists of two core parts: a base decoder-only layer and a set of hypersurfaces used to generate the diffs ($\Delta W_l$) that are dynamically applied to the base weight matrices to produce the next layer's weights ($W_l = W_0 + \Delta W_l$).
 
 # Model architecture
 
-The model adopts an approach similar to the Universal Transformer (UT), iterating inputs through a shared base layer $L$ times. Unlike the UT, which injects step/depth embeddings directly into the hidden states, **LoopSLM** modifies the base layer’s weights at each pass using layer-specific weight deltas. The weight deltas ($\Delta W_l$) are sampled from cross-sections of continuous hypersurfaces. Additionally, the model tracks input sequence context using a Gated Linear Attention (GLA) state vector, which dynamically modulates the geometry of the hypersurfaces.
+The model adopts an approach similar to the Universal Transformer (UT), iterating inputs through a shared base layer $L$ times. Unlike the UT, which injects step/depth embeddings directly into the hidden states, **DeltaSLM** modifies the base layer’s weights at each pass using layer-specific weight deltas. The weight deltas ($\Delta W_l$) are sampled from cross-sections of continuous hypersurfaces. Additionally, the model tracks input sequence context using a Gated Linear Attention (GLA) state vector, which dynamically modulates the geometry of the hypersurfaces.
 
 ## 1. Hypersurfaces
 
@@ -18,7 +18,7 @@ Take a 2D weight matrix. You can map it into a 3D coordinate space: plot the row
 
 Stacking the weight matrices of equivalent components across all layers (e.g. the Attention Query matrix ($W_q$) from layer 1 all the way through layer $L$) creates a 3D parameter tensor (rows $\times$ columns $\times$ layer depth). In turn, this tensor can be mapped into a 4D coordinate space, so this entire stack can be approximated by a single continuous 4D hypersurface. Slicing it along the layer-depth axis recovers the weight matrix for any specific layer.
 
-Replacing all parameters entirely with hypersurfaces proved too restrictive and failed to converge during training. Instead, **LoopSLM** keeps a shared base layer ($W_0$) and uses hypersurfaces to generate layer-specific weight deltas ($\Delta W_l$). To get the final weight matrix for any layer $l$, you simply add its delta to the base:
+Replacing all parameters entirely with hypersurfaces proved too restrictive and failed to converge during training. Instead, **DeltaSLM** keeps a shared base layer ($W_0$) and uses hypersurfaces to generate layer-specific weight deltas ($\Delta W_l$). To get the final weight matrix for any layer $l$, you simply add its delta to the base:
 
 $$W_1 = W_0 + \Delta W_1$$
 $$W_2 = W_0 + \Delta W_2$$
