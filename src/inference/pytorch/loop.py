@@ -2,9 +2,9 @@ import math
 import torch
 from torch import nn
 from .context import ContextTracker
-from .decoder import DecoderBlock
-from ..generators import AttentionDeltaGenerator, LinearDeltaGenerator
-from ..basis import TriangleSurface3D, TriangleSurface4D
+from ...common.decoder import DecoderBlock
+from ...common.generators import AttentionDeltaGenerator, LinearDeltaGenerator
+from ...common.basis import TriangleSurface3D, TriangleSurface4D
 
 
 class LoopBlock(nn.Module):
@@ -82,9 +82,13 @@ class LoopBlock(nn.Module):
         base_attn = (self.W_q, self.W_k, self.W_v, self.W_o)
         base_ffn = (self.W_up, self.W_down)
 
-        factors_attn = self.attn_gen.generate_harmonics()
-        factors_up = self.ffn_up_gen.generate_harmonics()
-        factors_down = self.ffn_down_gen.generate_harmonics()
+        if hasattr(self, '_cached_factors'):
+            factors_attn, factors_up, factors_down = self._cached_factors
+        else:
+            factors_attn = self.attn_gen.generate_harmonics()
+            factors_up = self.ffn_up_gen.generate_harmonics()
+            factors_down = self.ffn_down_gen.generate_harmonics()
+            self._cached_factors = (factors_attn, factors_up, factors_down)
 
         for n in range(self.num_layers):
             x = self.decoder(
