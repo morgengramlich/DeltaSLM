@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from .modulated.loop import LoopBlock
+from .loop import LoopBlock
 
 
 class DeltaSlm(nn.Module):

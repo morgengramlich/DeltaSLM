@@ -1,6 +1,6 @@
 from torch import nn
 import torch.nn.functional as F
-from ..utils import factorized_dynamic_linear
+from .utils import factorized_dynamic_linear
 
 
 class MultiHeadAttention(nn.Module):

@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 from .attention import MultiHeadAttention
-from ..utils import factorized_dynamic_linear
+from .utils import factorized_dynamic_linear
 
 
 class DynamicSwiGLU(nn.Module):
