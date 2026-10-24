@@ -1,11 +1,11 @@
 import torch
 from torch import nn
-from .basis import DeltaSurface3D, DeltaSurface4D
+from .basis import TriangleSurface3D, TriangleSurface4D
 
 
 class LinearDeltaGenerator(nn.Module):
     def __init__(self, in_features, out_features, num_layers, expansion_order,
-                 max_rc_cycles=5, max_depth_cycles=1, delta_fn=DeltaSurface3D):
+                 max_rc_cycles=5, max_depth_cycles=1, delta_fn=TriangleSurface3D):
         super().__init__()
 
         self.diff_gen = delta_fn(
@@ -25,7 +25,7 @@ class LinearDeltaGenerator(nn.Module):
 class AttentionDeltaGenerator(nn.Module):
     def __init__(self, d_model, num_layers, expansion_order,
                  max_mat_cycles=1, max_rc_cycles=5, max_depth_cycles=1,
-                 delta_fn=DeltaSurface4D):
+                 delta_fn=TriangleSurface4D):
         super().__init__()
         self.d_model = d_model
 
@@ -48,7 +48,7 @@ class AttentionDeltaGenerator(nn.Module):
 class LatentAttentionDeltaGenerator(nn.Module):
     def __init__(self, d_model, d_c, num_layers, expansion_order,
                  max_mat_cycles=1, max_rc_cycles=5, max_depth_cycles=1,
-                 delta_3d_fn=DeltaSurface3D, delta_4d_fn=DeltaSurface4D):
+                 delta_3d_fn=TriangleSurface3D, delta_4d_fn=TriangleSurface4D):
         super().__init__()
         self.d_model = d_model
         self.d_c = d_c
