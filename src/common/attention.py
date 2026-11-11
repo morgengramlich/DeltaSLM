@@ -19,19 +19,20 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, x, base_attn, factors_attn, layer_idx,
                 context_state=None, is_causal=False, attn_mask=None):
-        B, S_q, E = x.shape
+        B, S, E = x.shape
         W_q, W_k, W_v, W_o = base_attn
-        S, R, C, layer_depth = factors_attn
 
-        K_layer = layer_depth[:, layer_idx]
+        R_q, C_q, q_layer_depth = factors_attn[0]
+        q_proj = factorized_dynamic_linear(x, W_q, R_q, C_q, q_layer_depth[:, layer_idx], layer_idx, context_state)
+        q = q_proj.view(B, S, self.n_heads, self.d_k).transpose(1, 2)
 
-        q_proj = factorized_dynamic_linear(x, W_q, R, C, K_layer * S[:, 0], layer_idx, context_state)
-        k_proj = factorized_dynamic_linear(x, W_k, R, C, K_layer * S[:, 1], layer_idx, context_state)
-        v_proj = factorized_dynamic_linear(x, W_v, R, C, K_layer * S[:, 2], layer_idx, context_state)
+        R_k, C_k, k_layer_depth = factors_attn[1]
+        k_proj = factorized_dynamic_linear(x, W_k, R_k, C_k, k_layer_depth[:, layer_idx], layer_idx, context_state)
+        k = k_proj.view(B, S, self.n_heads, self.d_k).transpose(1, 2)
 
-        q = q_proj.view(B, S_q, self.n_heads, self.d_k).transpose(1, 2)
-        k = k_proj.view(B, S_q, self.n_heads, self.d_k).transpose(1, 2)
-        v = v_proj.view(B, S_q, self.n_heads, self.d_k).transpose(1, 2)
+        R_v, C_v, v_layer_depth = factors_attn[2]
+        v_proj = factorized_dynamic_linear(x, W_v, R_v, C_v, v_layer_depth[:, layer_idx], layer_idx, context_state)
+        v = v_proj.view(B, S, self.n_heads, self.d_k).transpose(1, 2)
 
         if self.q_norm:
             q = self.q_norm(q)
@@ -45,5 +46,6 @@ class MultiHeadAttention(nn.Module):
             dropout_p=0.0,
         )
 
-        out = out.transpose(1, 2).contiguous().view(B, S_q, E)
-        return factorized_dynamic_linear(out, W_o, R, C, K_layer * S[:, 3], layer_idx, context_state)
+        out = out.transpose(1, 2).contiguous().view(B, S, E)
+        R_o, C_o, o_layer_depth = factors_attn[3]
+        return factorized_dynamic_linear(out, W_o, R_o, C_o, o_layer_depth[:, layer_idx], layer_idx, context_state)

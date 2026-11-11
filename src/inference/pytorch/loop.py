@@ -3,13 +3,13 @@ import torch
 from torch import nn
 from .context import ContextTracker
 from ...common.decoder import DecoderBlock
-from ...common.generators import AttentionDeltaGenerator, LinearDeltaGenerator
-from ...common.basis import TriangleSurface3D, TriangleSurface4D
+from ...common.generators import LinearDeltaGenerator
+from ...common.basis import TriangleSurface3D
 
 
 class LoopBlock(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, num_layers, expansion_order, state_dim,
-                 max_mat_cycles=1, max_rc_cycles=5, max_depth_cycles=1, dropout=0.1):
+                 max_rc_cycles=5, max_depth_cycles=1, dropout=0.1):
         super().__init__()
 
         self.d_model = d_model
@@ -30,11 +30,15 @@ class LoopBlock(nn.Module):
         self.W_up = nn.Parameter(torch.empty(2 * d_ff, d_model))
         self.W_down = nn.Parameter(torch.empty(d_model, d_ff))
 
-        self.attn_gen = AttentionDeltaGenerator(
-            d_model, num_layers, expansion_order,
-            max_mat_cycles=max_mat_cycles, max_rc_cycles=max_rc_cycles, max_depth_cycles=max_depth_cycles,
-            delta_fn=TriangleSurface4D
-        )
+        self.attn_gens = nn.ModuleList([
+            LinearDeltaGenerator(
+                d_model, d_model, num_layers, expansion_order,
+                max_rc_cycles=max_rc_cycles, max_depth_cycles=max_depth_cycles,
+                delta_fn=TriangleSurface3D
+            )
+            for _ in range(4)
+        ])
+
         self.ffn_up_gen = LinearDeltaGenerator(
             d_model, 2 * d_ff, num_layers, expansion_order,
             max_rc_cycles=max_rc_cycles, max_depth_cycles=max_depth_cycles,
@@ -66,17 +70,25 @@ class LoopBlock(nn.Module):
         nn.init.xavier_uniform_(self.W_up, gain=gain)
         nn.init.xavier_uniform_(self.W_down, gain=gain)
 
-        self._init_amplitudes(self.attn_gen.diff_gen, alpha=alpha, n_in=self.d_model, n_out=self.d_model, expansion_order=self.expansion_order)
+        for gen in self.attn_gens:
+            self._init_amplitudes(
+                gen.diff_gen,
+                alpha=alpha,
+                n_in=self.d_model,
+                n_out=self.d_model,
+                expansion_order=self.expansion_order,
+            )
+
         self._init_amplitudes(self.ffn_up_gen.diff_gen, alpha=alpha, n_in=self.d_model, n_out=2 * self.d_ff, expansion_order=self.expansion_order)
         self._init_amplitudes(self.ffn_down_gen.diff_gen, alpha=alpha, n_in=self.d_ff, n_out=self.d_model, expansion_order=self.expansion_order)
 
     def _base_weights(self):
         return (self.W_q, self.W_k, self.W_v, self.W_o, self.W_up, self.W_down)
 
-    def forward(self, x, attn_mask=None):
+    def forward(self, x, document_ids, attn_mask=None):
         # B, T, E = x.shape
 
-        state = self.ctx_tracker(x)
+        state = self.ctx_tracker(x, document_ids)
         state = self.ctx_comp(state)
 
         base_attn = (self.W_q, self.W_k, self.W_v, self.W_o)
@@ -85,7 +97,7 @@ class LoopBlock(nn.Module):
         if hasattr(self, '_cached_factors'):
             factors_attn, factors_up, factors_down = self._cached_factors
         else:
-            factors_attn = self.attn_gen.generate_harmonics()
+            factors_attn = tuple(gen.generate_harmonics() for gen in self.attn_gens)
             factors_up = self.ffn_up_gen.generate_harmonics()
             factors_down = self.ffn_down_gen.generate_harmonics()
             self._cached_factors = (factors_attn, factors_up, factors_down)
@@ -128,7 +140,8 @@ class LoopBlock(nn.Module):
                 else:
                     raise ValueError(f"Unknown surface parameter '{name}' in {module.__class__.__name__}")
 
-        split_surface(self.attn_gen)
+        for gen in self.attn_gens:
+            split_surface(gen)
         split_surface(self.ffn_up_gen)
         split_surface(self.ffn_down_gen)
 
